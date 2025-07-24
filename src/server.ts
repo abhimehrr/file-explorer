@@ -21,15 +21,23 @@ app.use(express.static("view"));
 
 // Routes
 app.get("/", (req, res) => {
-  console.log("Cookie: ", req.cookies);
-  return res.sendFile(__dirname + "/view/login.html");
+  // console.log("Cookie: ", req.cookies);
+
+  return res.status(200).sendFile(path.join(__dirname, "view", "login.html"));
+});
+
+// File Explorer
+app.get("/explorer", (req, res) => {
+  return res
+    .status(200)
+    .sendFile(path.join(__dirname, "view", "file-explorer.html"));
 });
 
 // File Reader
 app.get(
   "/files",
   fileReader([
-    { dirName: "some", dirPath: "a:/f", ignoreDirs: ["node_modules"] },
+    // { dirName: "some", dirPath: "a:/f", ignoreDirs: ["node_modules"] },
     {
       dirName: "@root",
       dirPath: ".",

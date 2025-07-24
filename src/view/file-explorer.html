@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Explorer</title>
+    <style>
+      body {
+        background: linear-gradient(135deg, #232526 0%, #414345 100%);
+        min-height: 100vh;
+        margin: 0;
+        font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+      }
+      .explorer-root {
+        display: flex;
+        flex-direction: row;
+        height: 100vh;
+        max-width: 100vw;
+      }
+      .sidebar {
+        background: #23272e;
+        min-width: 220px;
+        width: 300px;
+        max-width: 40vw;
+        padding: 1rem 0.5rem 1rem 1rem;
+        border-right: 1px solid #232526;
+        overflow-y: auto;
+        transition: width 0.2s;
+      }
+      .sidebar h2 {
+        color: #fff;
+        font-size: 1.1rem;
+        margin: 0 0 1rem 0.5rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+      }
+      .file-tree {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        color: #e0e0e0;
+        font-size: 1rem;
+      }
+      .file-tree li {
+        margin: 0.1rem 0;
+        padding-left: 0.5rem;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        border-radius: 4px;
+        transition: background 0.15s;
+      }
+      .file-tree li:hover {
+        background: #31363f;
+      }
+      .file-tree .active {
+        background: linear-gradient(90deg, #21d4fd 0%, #b721ff 100%);
+        color: #fff;
+      }
+      .file-icon {
+        margin-right: 0.5rem;
+        font-size: 1.1em;
+        width: 1.2em;
+        text-align: center;
+      }
+      .caret {
+        margin-right: 0.3rem;
+        font-size: 0.9em;
+        transition: transform 0.2s;
+      }
+      .caret.down {
+        transform: rotate(90deg);
+      }
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background: rgba(30,34,40,0.98);
+      }
+      .editor-header {
+        background: #414345;
+        padding: 1.2rem 2rem 1rem 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        border-bottom: 1px solid #23272e;
+      }
+      .file-title {
+        color: #fff;
+        font-size: 1.2rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.2rem;
+        background: none;
+        border: none;
+        outline: none;
+        padding: 0;
+        cursor: default;
+      }
+      .file-path {
+        color: #b0b0b0;
+        font-size: 0.98rem;
+        font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+        background: rgba(44,49,60,0.5);
+        padding: 0.15rem 0.8rem;
+        border-radius: 4px;
+        margin-bottom: 0.1rem;
+      }
+      .code-area {
+        background: linear-gradient(135deg, #181c23 0%, #23272e 100%);
+        border-radius: 0 0 12px 12px;
+        padding: 2rem 2rem 1.5rem 2rem;
+        flex: 1;
+        margin: 0;
+        box-sizing: border-box;
+        overflow: auto;
+        min-height: 350px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+      .code-textarea {
+        width: 100%;
+        min-height: 200px;
+        font-family: "Fira Mono", "Consolas", "Menlo", monospace;
+        font-size: 16px;
+        color: #e0e0e0;
+        background: transparent;
+        border: none;
+        outline: none;
+        resize: none;
+        line-height: 1.7;
+        box-sizing: border-box;
+        padding: 0;
+        margin: 0;
+        overflow: auto;
+        max-height: 70vh;
+        white-space: pre;
+      }
+      .empty-state {
+        color: #888;
+        text-align: center;
+        margin-top: 4rem;
+        font-size: 1.1rem;
+      }
+      @media (max-width: 900px) {
+        .explorer-root {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: 100vw;
+          max-width: 100vw;
+          min-width: 0;
+          border-right: none;
+          border-bottom: 1px solid #232526;
+          padding: 0.5rem 0.5rem 0.5rem 1rem;
+        }
+        .main-content {
+          min-width: 0;
+        }
+      }
+      @media (max-width: 600px) {
+        .editor-header {
+          padding: 0.8rem 1rem 0.7rem 1rem;
+        }
+        .code-area {
+          padding: 1rem 0.5rem 1rem 0.5rem;
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="explorer-root">
+      <aside class="sidebar">
+        <h2>File Explorer</h2>
+        <ul class="file-tree" id="fileTree"></ul>
+      </aside>
+      <main class="main-content">
+        <div class="editor-header">
+          <span class="file-title" id="fileTitle">Select a file</span>
+          <span class="file-path" id="filePath"></span>
+        </div>
+        <div class="code-area" id="codeArea"><textarea class="code-textarea" readonly>Select a file from the explorer to view its content.</textarea></div>
+      </main>
+    </div>
+    <script>
+      // Utility to escape HTML for code display
+      function escapeHtml(str) {
+        return str.replace(/[&<>"']/g, function(tag) {
+          const charsToReplace = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+          };
+          return charsToReplace[tag] || tag;
+        });
+      }
+
+      // Fetch file tree and render
+      async function fetchFileTree() {
+        try {
+          const res = await fetch('http://localhost:2000/files');
+          if (!res.ok) throw new Error('Failed to fetch file tree');
+          const data = await res.json();
+          // Support API response with '@root' key and possible other keys for folders
+          if (data && typeof data === 'object' && Array.isArray(data['@root'])) {
+            return data;
+          } else {
+            throw new Error('Invalid file tree data');
+          }
+        } catch (err) {
+          return { error: err.message };
+        }
+      }
+
+      // Render file tree recursively for new structure
+      function renderTreeFromObject(treeObj, parentUl, currentKey = '@root') {
+        const files = treeObj[currentKey];
+        if (!Array.isArray(files) || files.length === 0) {
+          if (parentUl && parentUl.childElementCount === 0) {
+            const emptyMsg = document.createElement('li');
+            emptyMsg.textContent = 'No files or folders found.';
+            emptyMsg.style.color = '#888';
+            emptyMsg.style.fontStyle = 'italic';
+            parentUl.appendChild(emptyMsg);
+          }
+          return;
+        }
+        files.forEach(file => {
+          const li = document.createElement('li');
+          li.classList.add('file-tree-item');
+          li.setAttribute('data-path', file.path);
+          if (file.type === 'folder') {
+            li.innerHTML = `<span class="caret">▶</span><span class="file-icon">📁</span> <span>${file.name}</span>`;
+            li.classList.add('folder');
+            const childrenUl = document.createElement('ul');
+            childrenUl.style.display = 'none';
+            childrenUl.style.listStyle = 'none';
+            childrenUl.style.paddingLeft = '1.2em';
+            li.appendChild(childrenUl);
+            li.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const caret = li.querySelector('.caret');
+              if (childrenUl.style.display === 'none') {
+                childrenUl.style.display = 'block';
+                caret.classList.add('down');
+                // Recursively render children if present
+                if (!childrenUl.hasChildNodes() && Array.isArray(file.children) && file.children.length > 0) {
+                  // For children, we need to wrap in a pseudo-object to match the structure
+                  renderTreeFromObject({ children: file.children }, childrenUl, 'children');
+                }
+              } else {
+                childrenUl.style.display = 'none';
+                caret.classList.remove('down');
+              }
+            });
+          } else {
+            li.innerHTML = `<span class="file-icon">📄</span> <span>${file.name}</span>`;
+            li.classList.add('file');
+            li.addEventListener('click', function(e) {
+              e.stopPropagation();
+              document.querySelectorAll('.file-tree .active').forEach(el => el.classList.remove('active'));
+              li.classList.add('active');
+              showFileContent(file);
+            });
+          }
+          parentUl.appendChild(li);
+        });
+      }
+
+      // Show file content in the editor (new API: { content, fileName, path })
+      async function showFileContent(file) {
+        document.getElementById('fileTitle').textContent = file.name || file.fileName || '';
+        document.getElementById('filePath').textContent = file.path || '';
+        const codeArea = document.getElementById('codeArea');
+        codeArea.innerHTML = '<textarea class="code-textarea" readonly>Loading...</textarea>';
+        try {
+          const res = await fetch(`http://localhost:2000/files?path=${encodeURIComponent(file.path)}`);
+          if (!res.ok) throw new Error('Failed to fetch file content');
+          const data = await res.json();
+          // data: { content, fileName, path }
+          document.getElementById('fileTitle').textContent = data.fileName || '';
+          document.getElementById('filePath').textContent = data.path || '';
+          let content = data.content || '';
+          if (!content) {
+            codeArea.innerHTML = '<textarea class="code-textarea" readonly>(Empty file)</textarea>';
+          } else {
+            codeArea.innerHTML = `<textarea class="code-textarea" readonly>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>`;
+          }
+          autoResizeTextarea();
+        } catch (err) {
+          codeArea.innerHTML = `<textarea class="code-textarea" readonly>Error loading file: ${err.message}</textarea>`;
+        }
+      }
+
+      // Auto-resize textarea to fit content, up to max height
+      function autoResizeTextarea() {
+        const ta = document.querySelector('.code-textarea');
+        if (!ta) return;
+        ta.style.height = 'auto';
+        const maxHeight = Math.max(window.innerHeight - 180, 200) + 'px';
+        ta.style.maxHeight = maxHeight;
+        ta.style.height = ta.scrollHeight + 'px';
+        ta.addEventListener('input', function() {
+          ta.style.height = 'auto';
+          ta.style.height = ta.scrollHeight + 'px';
+        });
+      }
+      window.addEventListener('resize', autoResizeTextarea);
+
+      // Initial load
+      (async function() {
+        const fileTreeRoot = document.getElementById('fileTree');
+        fileTreeRoot.innerHTML = '<li style="color:#888;font-style:italic;">Loading file tree...</li>';
+        const fileTreeObj = await fetchFileTree();
+        fileTreeRoot.innerHTML = '';
+        if (fileTreeObj && !fileTreeObj.error) {
+          renderTreeFromObject(fileTreeObj, fileTreeRoot, '@root');
+        } else {
+          fileTreeRoot.innerHTML = `<li style='color:#e57373;font-style:italic;'>${fileTreeObj && fileTreeObj.error ? fileTreeObj.error : 'Failed to load file tree.'}</li>`;
+        }
+      })();
+    </script>
+  </body>
+</html>
