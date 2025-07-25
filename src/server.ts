@@ -16,16 +16,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Static Files
-app.use(express.static("view"));
-
-// Routes
-app.get("/", (req, res) => {
-  // console.log("Cookie: ", req.cookies);
-
-  return res.status(200).sendFile(path.join(__dirname, "view", "login.html"));
-});
-
 // File Explorer
 app.get("/explorer", (req, res) => {
   return res

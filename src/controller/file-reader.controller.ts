@@ -21,7 +21,10 @@ export interface File {
 // Read Directories
 export const fileReader = (props: FileReaderProps[]) => {
   return async (req: Request, res: Response) => {
-    const filePath = req.query.path as string;
+    const { filePath, html } = req.query as {
+      filePath?: string;
+      html?: string;
+    };
 
     // Read the file
     if (filePath) {
@@ -37,7 +40,7 @@ export const fileReader = (props: FileReaderProps[]) => {
 
       // Highlight the file content
       return res.status(200).json({
-        content: fileContent,
+        content: html ? escapeHtml(fileContent) : fileContent,
         fileName: path.basename(filePath),
         path: filePath,
       });
